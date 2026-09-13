@@ -1,7 +1,7 @@
 name: logilight
 title: LogiLight
 base: core24
-version: '0.1.2'
+version: '0.1.3'
 summary: RGB lighting control for Logitech G-series keyboards
 description: |
   Set the colour, effect and speed of the RGB lighting on Logitech G-series
@@ -42,10 +42,18 @@ apps:
     command: bin/logilight-daemon
     daemon: simple
     restart-condition: on-failure
-    # The daemon runs as root, which is what satisfies the Unix permission half
-    # of device access; raw-usb satisfies the AppArmor half.
+    # raw-usb satisfies the AppArmor half of device access; running as root
+    # satisfies the Unix permission half.
+    #
+    # network-bind is not optional and is not about the device. snapd's base
+    # seccomp profile allows `socket AF_UNIX` but NOT `bind`; bind/accept/listen
+    # come from this interface. Without it the daemon dies at startup with
+    # EPERM (errno 1) on bind(), which is near-impossible to diagnose from the
+    # error alone. It auto-connects: its base declaration has no
+    # deny-auto-connection.
     plugs:
       - raw-usb
+      - network-bind
 
   logilight-cli:
     command: bin/logilight-cli

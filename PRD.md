@@ -291,20 +291,31 @@ binary either (it is not in the snap and only formats these files).
 object per line, one reply per connection. Commands: `status`, `apply`, `save`,
 `load`, `delete`.
 
-Abstract, not a pathname in `$SNAP_COMMON`, and that is not a preference. snapd's
-AppArmor template grants exactly:
+Abstract, not a pathname in `$SNAP_COMMON`, and that is not a preference. Two
+independent gates both have to be open, and missing either one produces the same
+bare `EPERM` (errno 1) from `bind`:
+
+**AppArmor** grants abstract addresses only:
 
 ```
 unix (bind, listen) addr="@snap.@{SNAP_INSTANCE_NAME}.**",
 unix peer=(label=snap.@{SNAP_INSTANCE_NAME}.*),
 ```
 
-and grants nothing for binding a pathname socket. Attempting one fails with
-`EPERM` (errno 1 on `bind`), which is what an earlier revision of this design did.
-Abstract sockets also sidestep two other problems: there are no filesystem
-permissions to set, and nothing is left behind when the daemon dies, so there is
-no stale socket to clean up. The peer rule keeps other snaps from connecting,
-which is tighter than a world-writable socket file.
+**seccomp** does not allow `bind` at all. The base profile permits
+`socket AF_UNIX` but `bind`/`accept`/`listen` come from the `network-bind`
+interface, whose seccomp snippet is exactly `accept`, `accept4`, `bind`,
+`listen`. snapd's seccomp template even comments that a `bind` syscall is only
+added to the allowlist as a workaround *when AppArmor is disabled*.
+
+So the daemon needs **both** `network-bind` and an abstract address. The
+interface auto-connects: its base declaration carries no
+`deny-auto-connection`.
+
+Abstract sockets are a good fit anyway: no filesystem permissions to set, and
+nothing is left behind when the daemon dies, so there is no stale socket to
+clean up. The peer rule keeps other snaps from connecting, which is tighter than
+a world-writable socket file.
 
 **Boot**: snapd starts the daemon at boot; it applies the saved profile and
 starts a 3 s poll that re-applies when a new keyboard appears. This replaces the

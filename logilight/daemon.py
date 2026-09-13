@@ -186,7 +186,20 @@ def main(argv: list[str] | None = None) -> int:
     # Bind first. Previously the initial device scan ran before this, so any
     # exception there killed the process before the socket existed, and every
     # client just saw "cannot reach the service" with no explanation.
-    server = start_server()
+    try:
+        server = start_server()
+    except OSError as exc:
+        # The likely cause is a missing bind permission: snapd's base seccomp
+        # profile denies bind() unless the snap plugs network-bind. Say so,
+        # because a bare EPERM is indistinguishable from many other problems.
+        print(
+            f"logilight-daemon: cannot bind {core.socket_address()!r}: {exc}. "
+            "Check that network-bind is connected (snap connections logilight).",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 1
+
     print(f"logilight-daemon listening on {core.socket_address()!r}", flush=True)
 
     threading.Thread(target=watch_hotplug, args=(stop,), daemon=True).start()

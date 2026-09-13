@@ -239,6 +239,24 @@ def test_snap_address_is_abstract_and_matches_the_apparmor_grant():
                 _os.environ[key] = value
 
 
+def test_snap_manifest_grants_bind_to_the_daemon():
+    # snapd's base seccomp profile allows `socket AF_UNIX` but not `bind`;
+    # network-bind supplies accept/accept4/bind/listen. Without it the daemon
+    # dies with EPERM on bind(), which is what shipped in 0.1.0-0.1.2.
+    # Parsed as text so the test needs no YAML library.
+    from pathlib import Path
+
+    manifest = (Path(__file__).resolve().parent.parent / "snap" / "snapcraft.yaml").read_text()
+    assert "logilight-daemon:" in manifest, "daemon app missing from the manifest"
+    daemon = manifest.split("logilight-daemon:")[1].split("logilight-cli:")[0]
+    assert "network-bind" in daemon, "daemon must plug network-bind or bind() returns EPERM"
+    assert "raw-usb" in daemon, "daemon must plug raw-usb to reach the keyboard"
+
+    # The GUI talks to the daemon and never binds, so it should not carry either.
+    gui = manifest.split("  logilight:")[1].split("logilight-daemon:")[0]
+    assert "network-bind" not in gui and "raw-usb" not in gui, gui
+
+
 def main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for test in tests:
