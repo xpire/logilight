@@ -86,12 +86,16 @@ parts:
   logilight:
     plugin: dump
     source: .
+    # Only the Python package needs relocating. The launchers must stay in bin/
+    # because apps.logilight*.command is resolved from $SNAP: organising bin/*
+    # elsewhere would move them out from under the commands that use them.
     organize:
-      bin/*: usr/bin/
       logilight/*: lib/logilight/
+    # Whitelist rather than blacklist: anything not listed here is dropped, and
+    # a missing staged runtime file is a broken app, not a smaller snap.
     prime:
-      - usr/bin/**
-      - usr/lib/**
-      - lib/logilight/**
+      - bin/**
+      - lib/**
+      - usr/**
     stage-packages:
       - python3-gi
