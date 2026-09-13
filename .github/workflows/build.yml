@@ -17,6 +17,20 @@ jobs:
       - name: End-to-end tests
         run: python3 tests/test_integration.py
 
+  gui:
+    name: gui
+    # Same GTK4 + libadwaita generation as the core24 gnome extension.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the GTK stack
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 xvfb
+      - name: GUI smoke test
+        run: xvfb-run -a python3 tests/test_gui.py
+
   snap:
     name: snap
     runs-on: ubuntu-latest

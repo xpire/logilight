@@ -64,6 +64,12 @@ parts:
       - libusb-1.0-0
     override-build: |
       set -e
+      # g810-led 0.4.3 uses uint8_t/uint16_t throughout but never includes
+      # <cstdint>. libstdc++ used to leak it in via <iostream>; since GCC 13 it
+      # does not, so upstream no longer compiles on core24. One include each.
+      for file in src/main.cpp src/helpers/*.h src/helpers/*.cpp src/classes/*.h src/classes/*.cpp; do
+        sed -i '1i #include <cstdint>' "$file"
+      done
       # LIB=libusb is mandatory in a snap: the default hidapi build writes to
       # /dev/hidraw*, which no connectable interface grants. libusb uses
       # /dev/bus/usb/*, which raw-usb does cover.

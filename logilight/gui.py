@@ -27,12 +27,18 @@ def rgba_to_hex(rgba: Gdk.RGBA) -> str:
 
 
 def hex_to_rgba(value: str) -> Gdk.RGBA:
-    return Gdk.RGBA(
-        red=int(value[0:2], 16) / 255.0,
-        green=int(value[2:4], 16) / 255.0,
-        blue=int(value[4:6], 16) / 255.0,
-        alpha=1.0,
-    )
+    """Build a Gdk.RGBA from RRGGBB.
+
+    Fields must be assigned after construction: passing them to the Gdk.RGBA
+    constructor is deprecated in PyGObject and silently discards them, which
+    turns every colour into black.
+    """
+    rgba = Gdk.RGBA()
+    rgba.red = int(value[0:2], 16) / 255.0
+    rgba.green = int(value[2:4], 16) / 255.0
+    rgba.blue = int(value[4:6], 16) / 255.0
+    rgba.alpha = 1.0
+    return rgba
 
 
 def _button(label: str, tooltip: str, callback) -> Gtk.Button:
@@ -75,6 +81,8 @@ class Window(Adw.ApplicationWindow):
             title="Devices", description="Logitech RGB keyboards found on this machine"
         )
         self.devices_group.set_header_suffix(_button("Rescan", "Look for keyboards again", self.refresh))
+        # PreferencesGroup has no public get_rows(); track what we add instead.
+        self._device_rows: list[Adw.ActionRow] = []
         return self.devices_group
 
     def _build_lighting(self) -> Adw.PreferencesGroup:
@@ -244,14 +252,21 @@ class Window(Adw.ApplicationWindow):
         self._loading = False
 
     def show_devices(self, devices: list[dict]):
-        for row in self.devices_group.get_rows():
+        for row in self._device_rows:
             self.devices_group.remove(row)
-        if not devices:
-            self.devices_group.add(Adw.ActionRow(title="No keyboard detected", subtitle="Plug one in and rescan"))
-        for device in devices:
-            self.devices_group.add(
+
+        if devices:
+            self._device_rows = [
                 Adw.ActionRow(title=device["name"], subtitle=f"USB 046d:{device['pid']}")
-            )
+                for device in devices
+            ]
+        else:
+            self._device_rows = [
+                Adw.ActionRow(title="No keyboard detected", subtitle="Plug one in and rescan")
+            ]
+
+        for row in self._device_rows:
+            self.devices_group.add(row)
 
     def show_presets(self, names: list[str]):
         for row in self._preset_rows:
