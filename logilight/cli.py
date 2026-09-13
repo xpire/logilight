@@ -77,7 +77,12 @@ def main(argv: list[str] | None = None) -> int:
             reply = core.request({"cmd": "apply", "settings": merge_settings(current, args)})
         else:
             reply = core.request({"cmd": "status"})
-    except (OSError, ValueError) as exc:
+    except OSError as exc:
+        # The usual cause is the daemon not being up yet, just after install.
+        print(f"logilight: cannot reach the LogiLight service ({exc.strerror}).", file=sys.stderr)
+        print("          Start it with: sudo snap start logilight.logilight-daemon", file=sys.stderr)
+        return 1
+    except ValueError as exc:
         print(f"logilight: {exc}", file=sys.stderr)
         return 1
 

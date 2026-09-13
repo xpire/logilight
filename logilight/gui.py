@@ -145,7 +145,7 @@ class Window(Adw.ApplicationWindow):
         try:
             reply = core.request({"cmd": "status"})
         except OSError as exc:
-            self.fail(f"LogiLight service is not reachable ({exc}). Try: snap start logilight-daemon")
+            self.fail(f"Cannot reach the LogiLight service ({exc.strerror}). Try: sudo snap start logilight.logilight-daemon")
             return
         self.show_devices(reply.get("devices", []))
         self.load_into_ui(reply.get("settings") or core.DEFAULTS)
@@ -159,7 +159,7 @@ class Window(Adw.ApplicationWindow):
         try:
             reply = core.request(payload)
         except OSError as exc:
-            self.fail(f"LogiLight service is not reachable ({exc}).")
+            self.fail(f"Cannot reach the LogiLight service ({exc.strerror}). Try: sudo snap start logilight.logilight-daemon")
             return None
         if reply.get("ok"):
             self.banner.set_revealed(False)
