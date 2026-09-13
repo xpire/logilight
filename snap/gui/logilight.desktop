@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=LogiLight
+GenericName=Keyboard Lighting
+Comment=Set the colour and effect of your Logitech keyboard lighting
+Exec=logilight
+Icon=input-keyboard
+Terminal=false
+Type=Application
+Categories=Settings;HardwareSettings;GTK;
+Keywords=logitech;rgb;lighting;g910;g810;g512;keyboard;led;

@@ -1,0 +1,90 @@
+name: logilight
+title: LogiLight
+base: core24
+version: '0.1.0'
+summary: RGB lighting control for Logitech G-series keyboards
+description: |
+  Set the colour, effect and speed of the RGB lighting on Logitech G-series
+  keyboards, and choose whether it comes back after a reboot.
+
+  LogiLight drives g810-led, the standard Linux controller for these keyboards.
+  It replaces the usual sudo / udev-rule / systemd-service setup with a confined
+  snap service that already runs with the access it needs, so nothing has to be
+  installed on the host and no password is ever requested.
+
+  Supported keyboards: G213, G410, G413, G512, G513, G610, G815, G810, G910,
+  G Pro.  Mice are out of scope -- use Piper (apt install piper) for those.
+
+  After installing, connect the hardware interface once:
+    sudo snap connect logilight:raw-usb
+grade: stable
+confinement: strict
+license: MIT
+website: https://github.com/xpire/logilight
+source-code: https://github.com/xpire/logilight
+issues: https://github.com/xpire/logilight/issues
+
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+  arm64:
+    build-on: [arm64]
+    build-for: [arm64]
+
+apps:
+  logilight:
+    command: bin/logilight-gui
+    extensions: [gnome]
+    desktop: snap/gui/logilight.desktop
+
+  logilight-daemon:
+    command: bin/logilight-daemon
+    daemon: simple
+    restart-condition: on-failure
+    # The daemon runs as root, which is what satisfies the Unix permission half
+    # of device access; raw-usb satisfies the AppArmor half.
+    plugs:
+      - raw-usb
+
+  logilight-cli:
+    command: bin/logilight-cli
+
+parts:
+  g810-led:
+    plugin: make
+    source: https://github.com/MatMoul/g810-led.git
+    # v0.4.3, unchanged upstream since 2022. Pinned so CI builds are reproducible.
+    source-commit: efa3c35e74f01a2ed2346320da8bad411bfe8ed8
+    build-packages:
+      - g++
+      - make
+      - libusb-1.0-0-dev
+    stage-packages:
+      - libusb-1.0-0
+    override-build: |
+      set -e
+      # LIB=libusb is mandatory in a snap: the default hidapi build writes to
+      # /dev/hidraw*, which no connectable interface grants. libusb uses
+      # /dev/bus/usb/*, which raw-usb does cover.
+      make bin LIB=libusb
+      install -Dm755 bin/g810-led "${CRAFT_PART_INSTALL}/usr/bin/g810-led"
+      # g810-led selects the keyboard layout from argv[0]. Upstream's `make
+      # setup` creates *absolute* /usr/bin links, which would resolve to the
+      # host and be blocked; these must be relative.
+      for name in g213 g410 g413 g512 g513 g610 g815 g910 gpro; do
+        ln -sf g810-led "${CRAFT_PART_INSTALL}/usr/bin/${name}-led"
+      done
+
+  logilight:
+    plugin: dump
+    source: .
+    organize:
+      bin/*: usr/bin/
+      logilight/*: lib/logilight/
+    prime:
+      - usr/bin/**
+      - usr/lib/**
+      - lib/logilight/**
+    stage-packages:
+      - python3-gi

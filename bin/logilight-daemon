@@ -1,0 +1,8 @@
+#!/bin/sh
+# LogiLight daemon launcher. Inside the snap snapd starts this as root.
+set -e
+if [ -n "${SNAP:-}" ]; then
+	PYTHONPATH="$SNAP/lib:$SNAP/usr/lib/python3/dist-packages${PYTHONPATH:+:$PYTHONPATH}"
+	export PYTHONPATH
+fi
+exec "${PYTHON:-python3}" -m logilight.daemon "$@"
