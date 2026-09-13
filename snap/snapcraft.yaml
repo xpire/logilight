@@ -1,7 +1,7 @@
 name: logilight
 title: LogiLight
 base: core24
-version: '0.1.1'
+version: '0.1.2'
 summary: RGB lighting control for Logitech G-series keyboards
 description: |
   Set the colour, effect and speed of the RGB lighting on Logitech G-series

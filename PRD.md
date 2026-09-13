@@ -287,8 +287,24 @@ binary either (it is not in the snap and only formats these files).
                                      /snap/logilight/current/usr/bin/g910-led
 ```
 
-**Socket**: `$SNAP_COMMON/logilight.sock`, mode `0666`, one JSON object per line,
-one reply per connection. Commands: `status`, `apply`, `save`, `load`, `delete`.
+**Socket**: an **abstract** AF_UNIX socket named `@snap.logilight.daemon`, one JSON
+object per line, one reply per connection. Commands: `status`, `apply`, `save`,
+`load`, `delete`.
+
+Abstract, not a pathname in `$SNAP_COMMON`, and that is not a preference. snapd's
+AppArmor template grants exactly:
+
+```
+unix (bind, listen) addr="@snap.@{SNAP_INSTANCE_NAME}.**",
+unix peer=(label=snap.@{SNAP_INSTANCE_NAME}.*),
+```
+
+and grants nothing for binding a pathname socket. Attempting one fails with
+`EPERM` (errno 1 on `bind`), which is what an earlier revision of this design did.
+Abstract sockets also sidestep two other problems: there are no filesystem
+permissions to set, and nothing is left behind when the daemon dies, so there is
+no stale socket to clean up. The peer rule keeps other snaps from connecting,
+which is tighter than a world-writable socket file.
 
 **Boot**: snapd starts the daemon at boot; it applies the saved profile and
 starts a 3 s poll that re-applies when a new keyboard appears. This replaces the
@@ -402,7 +418,8 @@ README, `snapcraft lint`, arm64 build.
 6. Presets save, load and delete; survive a reboot.
 7. `python3 tests/test_core.py` passes (11 checks, currently green).
 8. No `sudo` anywhere in the snap's runtime path, and no writes outside
-   `$SNAP_COMMON` and `$SNAP_DATA`.
+   `$SNAP_COMMON` and `$SNAP_DATA` (profiles only; the socket is abstract and
+   touches no filesystem).
 9. `journalctl -u snap.logilight.logilight-daemon` shows no errors on a normal boot.
 
 ---

@@ -209,21 +209,35 @@ def delete_profile(name: str) -> None:
 
 # ---------------------------------------------------------------- daemon link
 
-def socket_path() -> Path:
+def socket_address() -> str:
+    """AF_UNIX address for the daemon socket.
+
+    Inside a snap this MUST be an abstract socket. snapd's AppArmor template
+    grants `unix (bind, listen) addr="@snap.@{SNAP_INSTANCE_NAME}.**"` and
+    grants nothing for binding a *pathname* socket, which fails with EPERM.
+    Abstract sockets are also a better fit: no filesystem permissions to set,
+    no stale socket to clean up after a crash, and the template's peer rule
+    keeps other snaps from connecting.
+
+    Outside a snap (and in the tests) a pathname socket is used, since it is
+    easier to see and to poke at with socat.
+    """
     override = os.environ.get("LOGILIGHT_SOCKET")
     if override:
-        return Path(override)
-    base = os.environ.get("SNAP_COMMON")
-    if base:
-        return Path(base) / "logilight.sock"
-    return Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "logilight.sock"
+        return override
+
+    instance = os.environ.get("SNAP_INSTANCE_NAME") or os.environ.get("SNAP_NAME")
+    if instance:
+        return f"\0snap.{instance}.daemon"
+
+    return str(Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "logilight.sock")
 
 
 def request(payload: dict, timeout: float = 5.0) -> dict:
     """Send one newline-delimited JSON command to the daemon and read the reply."""
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
         sock.settimeout(timeout)
-        sock.connect(str(socket_path()))
+        sock.connect(socket_address())
         sock.sendall(json.dumps(payload).encode() + b"\n")
         buf = b""
         while not buf.endswith(b"\n"):

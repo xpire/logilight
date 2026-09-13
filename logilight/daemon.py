@@ -20,6 +20,7 @@ import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 
 from . import core
 
@@ -111,24 +112,25 @@ def handle(cmd: dict) -> dict:
 
 def start_server() -> socket.socket:
     """Bind and listen. Separate from serve() so the socket can exist before
-    anything that might fail, such as the initial device scan."""
-    path = core.socket_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.unlink(missing_ok=True)
+    anything that might fail, such as the initial device scan.
+
+    The address is abstract inside a snap (see core.socket_address) so there is
+    no directory to create, no permissions to set and nothing left behind.
+    """
+    address = core.socket_address()
+    if not address.startswith("\0"):
+        path = Path(address)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.unlink(missing_ok=True)
 
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    server.bind(str(path))
-    # ponytail: any local user can drive the LEDs. That is the whole privilege
-    # the socket carries -- no shell, no file access, no escalation -- so the
-    # ceiling is acceptable. Per-uid SO_PEERCRED checks if that ever changes.
-    os.chmod(path, 0o666)
+    server.bind(address)
     server.listen(8)
     server.settimeout(1.0)
     return server
 
 
 def serve(stop: threading.Event, server: socket.socket | None = None) -> None:
-    path = core.socket_path()
     if server is None:
         server = start_server()
 
@@ -146,7 +148,9 @@ def serve(stop: threading.Event, server: socket.socket | None = None) -> None:
                 stream.write(json.dumps(reply).encode() + b"\n")
     finally:
         server.close()
-        path.unlink(missing_ok=True)
+        address = core.socket_address()
+        if not address.startswith("\0"):
+            Path(address).unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------- entry point
@@ -183,7 +187,7 @@ def main(argv: list[str] | None = None) -> int:
     # exception there killed the process before the socket existed, and every
     # client just saw "cannot reach the service" with no explanation.
     server = start_server()
-    print(f"logilight-daemon listening on {core.socket_path()}", flush=True)
+    print(f"logilight-daemon listening on {core.socket_address()!r}", flush=True)
 
     threading.Thread(target=watch_hotplug, args=(stop,), daemon=True).start()
     boot_apply()

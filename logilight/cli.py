@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as exc:
         # Printed with the path we actually tried: a daemon and client that
         # disagree about the socket location look identical to a dead daemon.
-        print(f"logilight: cannot reach the LogiLight service at {core.socket_path()} ({exc.strerror}).", file=sys.stderr)
+        print(f"logilight: cannot reach the LogiLight service at {core.socket_address()!r} ({exc.strerror}).", file=sys.stderr)
         print("          Check: systemctl status snap.logilight.logilight-daemon", file=sys.stderr)
         print("          Retry: sudo snap restart logilight.logilight-daemon", file=sys.stderr)
         return 1

@@ -205,6 +205,40 @@ def test_apply_reports_a_missing_g810_led_instead_of_raising():
     assert result["ok"] is False and result["errors"], result
 
 
+def test_snap_address_is_abstract_and_matches_the_apparmor_grant():
+    # snapd grants: unix (bind, listen) addr="@snap.@{SNAP_INSTANCE_NAME}.**"
+    # and nothing at all for a pathname bind, which fails with EPERM. So inside
+    # a snap the address must be abstract and prefixed exactly like that.
+    import os as _os
+
+    saved = {k: _os.environ.pop(k, None) for k in ("LOGILIGHT_SOCKET", "SNAP_INSTANCE_NAME", "SNAP_NAME", "SNAP_COMMON")}
+    try:
+        _os.environ["SNAP_INSTANCE_NAME"] = "logilight"
+        _os.environ["SNAP_COMMON"] = "/var/snap/logilight/common"
+        address = core.socket_address()
+        assert address.startswith("\0snap.logilight."), repr(address)
+        assert "/" not in address, f"abstract sockets take no path: {address!r}"
+
+        # A parallel install must use its own instance name, not the snap name.
+        _os.environ["SNAP_INSTANCE_NAME"] = "logilight_foo"
+        assert core.socket_address().startswith("\0snap.logilight_foo.")
+
+        # Falls back to SNAP_NAME when SNAP_INSTANCE_NAME is absent.
+        _os.environ.pop("SNAP_INSTANCE_NAME")
+        _os.environ["SNAP_NAME"] = "logilight"
+        assert core.socket_address().startswith("\0snap.logilight.")
+
+        # The tests' override wins over everything, so they can use a path.
+        _os.environ["LOGILIGHT_SOCKET"] = "/tmp/x.sock"
+        assert core.socket_address() == "/tmp/x.sock"
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                _os.environ.pop(key, None)
+            else:
+                _os.environ[key] = value
+
+
 def main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for test in tests:
