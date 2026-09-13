@@ -36,7 +36,8 @@ apps:
   logilight:
     command: bin/logilight-gui
     extensions: [gnome]
-    desktop: snap/gui/logilight.desktop
+    # No `desktop:` key: snapcraft picks up snap/gui/<app>.desktop automatically,
+    # and an explicit path is resolved relative to snap/ rather than the project.
 
   logilight-daemon:
     command: bin/logilight-daemon
