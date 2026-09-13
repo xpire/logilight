@@ -8,17 +8,31 @@ systemd unit, no `pip install`, no group membership.
 
 ## Install
 
-Grab `logilight_*.snap` from the latest passing
-[build](../../actions/workflows/build.yml) (open a run → **Artifacts** →
-`logilight-snap-amd64`), then:
+Download `logilight_0.1.0_amd64.snap` from the
+[latest release](../../releases/latest), then:
 
 ```bash
-sudo snap install --dangerous logilight_*.snap
+sudo snap install --dangerous logilight_0.1.0_amd64.snap
 sudo snap connect logilight:raw-usb
 ```
 
-`raw-usb` is not auto-connected because it grants raw USB access. Without it the
-app can detect the keyboard but not write to it.
+Until it is published to the Snap Store, `--dangerous` is required because there
+is no signed assertion for this build.
+
+`raw-usb` is deliberately not auto-connected: it grants raw USB access. Without
+it the app can detect the keyboard but not write to it.
+
+<details>
+<summary>Or build it from source</summary>
+
+```bash
+snapcraft          # requires snapcraft and an LXD or container backend
+```
+
+CI also builds the snap on every push — see the
+[workflow](../../actions/workflows/build.yml).
+
+</details>
 
 ## Use
 
@@ -76,12 +90,6 @@ Two packaging details are load-bearing and documented in [`PRD.md`](PRD.md):
 - **The `g*-led` symlinks are relative.** g810-led picks the keyboard layout from
   `argv[0]`, and upstream's `make setup` creates absolute `/usr/bin` links that
   would resolve outside the snap.
-
-## Building
-
-```bash
-snapcraft          # requires snapcraft and an LXD or container backend
-```
 
 ## Layout
 
