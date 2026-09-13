@@ -18,7 +18,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 
 from . import core  # noqa: E402
 
-APP_ID = "io.github.logilight.LogiLight"
+APP_ID = core.APP_ID
 DEBOUNCE_MS = 200
 
 

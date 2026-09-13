@@ -257,6 +257,23 @@ def test_snap_manifest_grants_bind_to_the_daemon():
     assert "network-bind" not in gui and "raw-usb" not in gui, gui
 
 
+def test_manifest_declares_the_app_id_as_a_desktop_file_id():
+    # Gtk.Application owns its application_id on the session bus, and snapd
+    # denies that bind unless the snap declared the name via the desktop
+    # interface's desktop-file-ids. Without it the GUI starts and immediately
+    # dies with AccessDenied, which is what shipped in 0.1.0-0.1.3.
+    from pathlib import Path
+
+    manifest = (Path(__file__).resolve().parent.parent / "snap" / "snapcraft.yaml").read_text()
+    assert "desktop-file-ids:" in manifest, "GUI cannot own its D-Bus name"
+
+    # Whatever is declared must be exactly the id the GUI asks for.
+    import re
+
+    declared = set(re.findall(r"^\s+-\s+([A-Za-z_][\w-]*(?:\.[A-Za-z_][\w-]*)+)\s*$", manifest, re.M))
+    assert core.APP_ID in declared, f"{core.APP_ID} not declared, found {sorted(declared)}"
+
+
 def main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for test in tests:

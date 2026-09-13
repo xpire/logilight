@@ -15,6 +15,11 @@ from pathlib import Path
 
 VENDOR = "046d"  # Logitech
 
+# GApplication id, and therefore the session-bus name the GUI owns. It lives
+# here rather than in gui.py so the manifest can be checked against it without
+# importing GTK.
+APP_ID = "io.github.logilight.LogiLight"
+
 # Overridable so the discovery path can be exercised without a keyboard.
 USB_DEVICES = Path("/sys/bus/usb/devices")
 

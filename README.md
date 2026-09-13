@@ -83,6 +83,11 @@ since a desktop launcher swallows it:
 snap run logilight
 ```
 
+If that reports `is not allowed to own the service ... due to AppArmor policy`,
+the snap is not permitted to own the D-Bus name `Gtk.Application` claims. It must
+be declared in the manifest via the `desktop` interface's `desktop-file-ids`
+(see `snap/snapcraft.yaml`).
+
 The GUI needs the GNOME platform snaps, which snapd normally installs on demand:
 
 ```bash

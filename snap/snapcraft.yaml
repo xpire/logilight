@@ -1,7 +1,7 @@
 name: logilight
 title: LogiLight
 base: core24
-version: '0.1.3'
+version: '0.1.4'
 summary: RGB lighting control for Logitech G-series keyboards
 description: |
   Set the colour, effect and speed of the RGB lighting on Logitech G-series
@@ -30,6 +30,23 @@ platforms:
   arm64:
     build-on: [arm64]
     build-for: [arm64]
+
+# Gtk.Application owns this session-bus name when it starts. snapd's AppArmor
+# policy only lets a snap own a session-bus name it has declared, so without
+# this the window never appears and the journal shows:
+#
+#   Failed to register: GDBus.error:org.freedesktop.DBus.Error.AccessDenied:
+#   Connection ":1.279" is not allowed to own the service
+#   "io.github.logilight.LogiLight" due to AppArmor policy
+#
+# Declared top-level rather than on the app because the gnome extension appends
+# "desktop" to each app's plugs without checking for duplicates; the app's list
+# then refers to this definition, attributes included.
+plugs:
+  desktop:
+    interface: desktop
+    desktop-file-ids:
+      - io.github.logilight.LogiLight
 
 apps:
   logilight:
