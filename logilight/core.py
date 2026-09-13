@@ -15,6 +15,9 @@ from pathlib import Path
 
 VENDOR = "046d"  # Logitech
 
+# Overridable so the discovery path can be exercised without a keyboard.
+USB_DEVICES = Path("/sys/bus/usb/devices")
+
 # PID -> (display name, g*-led argv[0]).
 # Source of truth: g810-led's own udev/g810-led.rules. The original LogiLight
 # table was missing c331/c335/c338/c33f and mapped c337 to the wrong binary.
@@ -123,7 +126,15 @@ def detect() -> list[dict]:
     -- the one path the raw-usb interface grants read access to.
     """
     found: dict[str, dict] = {}
-    for vendor in Path("/sys/bus/usb/devices").glob("*/idVendor"):
+    try:
+        entries = list(USB_DEVICES.glob("*/idVendor"))
+    except OSError:
+        # Confinement without the raw-usb plug connected can deny the listing.
+        # An empty result is the honest answer; the caller turns it into a
+        # message that names the likely fix.
+        return []
+
+    for vendor in entries:
         try:
             if vendor.read_text().strip().lower() != VENDOR:
                 continue

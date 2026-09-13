@@ -37,7 +37,12 @@ def apply(settings: dict) -> dict:
     settings = core.clean(settings)
     devices = core.detect()
     if not devices:
-        return {"ok": False, "error": "no Logitech RGB keyboard detected", "applied": []}
+        return {
+            "ok": False,
+            "error": "no Logitech RGB keyboard detected (if one is plugged in, "
+            "run: sudo snap connect logilight:raw-usb)",
+            "applied": [],
+        }
 
     applied, errors = [], []
     with _LOCK:
@@ -45,7 +50,11 @@ def apply(settings: dict) -> dict:
             argv = [core.resolve(dev["binary"])] + core.effect_args(
                 settings["effect"], settings["target"], settings["color"], settings["speed"]
             )
-            proc = subprocess.run(argv, capture_output=True, text=True)
+            try:
+                proc = subprocess.run(argv, capture_output=True, text=True)
+            except OSError as exc:
+                errors.append(f"{dev['name']}: cannot run {argv[0]}: {exc}")
+                continue
             if proc.returncode == 0:
                 applied.append(dev["name"])
             else:
@@ -58,12 +67,15 @@ def watch_hotplug(stop: threading.Event) -> None:
     """Re-apply the saved profile whenever a new keyboard shows up."""
     seen = {d["pid"] for d in core.detect()}
     while not stop.wait(POLL_SECONDS):
-        now = {d["pid"] for d in core.detect()}
-        if now - seen:
-            active = core.load_profile()
-            if active["enabled"]:
-                apply(active)
-        seen = now
+        try:
+            now = {d["pid"] for d in core.detect()}
+            if now - seen:
+                active = core.load_profile()
+                if active["enabled"]:
+                    apply(active)
+            seen = now
+        except Exception as exc:  # noqa: BLE001 - a watcher must outlive a bad poll
+            print(f"logilight-daemon: hot-plug check failed: {exc}", file=sys.stderr, flush=True)
 
 
 # ---------------------------------------------------------------- protocol
@@ -97,7 +109,9 @@ def handle(cmd: dict) -> dict:
     return {"ok": False, "error": f"unknown command: {name!r}"}
 
 
-def serve(stop: threading.Event) -> None:
+def start_server() -> socket.socket:
+    """Bind and listen. Separate from serve() so the socket can exist before
+    anything that might fail, such as the initial device scan."""
     path = core.socket_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.unlink(missing_ok=True)
@@ -110,6 +124,13 @@ def serve(stop: threading.Event) -> None:
     os.chmod(path, 0o666)
     server.listen(8)
     server.settimeout(1.0)
+    return server
+
+
+def serve(stop: threading.Event, server: socket.socket | None = None) -> None:
+    path = core.socket_path()
+    if server is None:
+        server = start_server()
 
     try:
         while not stop.is_set():
@@ -130,6 +151,17 @@ def serve(stop: threading.Event) -> None:
 
 # ---------------------------------------------------------------- entry point
 
+def boot_apply() -> None:
+    """Apply the saved profile once at startup. Must never be fatal: the service
+    has to stay up so the CLI and GUI can be told what went wrong."""
+    try:
+        active = core.load_profile()
+        if active["enabled"]:
+            print(json.dumps(apply(active)), flush=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"logilight-daemon: initial apply failed: {exc}", file=sys.stderr, flush=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="logilight-daemon", description=__doc__)
     parser.add_argument("--once", action="store_true", help="apply the saved profile and exit")
@@ -147,13 +179,16 @@ def main(argv: list[str] | None = None) -> int:
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
 
+    # Bind first. Previously the initial device scan ran before this, so any
+    # exception there killed the process before the socket existed, and every
+    # client just saw "cannot reach the service" with no explanation.
+    server = start_server()
+    print(f"logilight-daemon listening on {core.socket_path()}", flush=True)
+
     threading.Thread(target=watch_hotplug, args=(stop,), daemon=True).start()
+    boot_apply()
 
-    active = core.load_profile()
-    if active["enabled"]:
-        print(json.dumps(apply(active)), flush=True)
-
-    serve(stop)
+    serve(stop, server)
     return 0
 
 

@@ -65,6 +65,38 @@ Supported keyboards: **G213, G410, G413, G512, G513, G610, G815, G810, G910,
 G Pro**. Mice are out of scope — use [Piper](https://github.com/libratbag/piper)
 (`sudo apt install piper`) for those.
 
+## Troubleshooting
+
+**`cannot reach the LogiLight service`** — the daemon is not running. The CLI now
+prints the socket path it tried, so a mismatch is visible:
+
+```bash
+systemctl status snap.logilight.logilight-daemon
+snap logs logilight.logilight-daemon
+sudo snap restart logilight.logilight-daemon
+```
+
+**Clicking LogiLight does nothing** — launch it from a terminal to see the error,
+since a desktop launcher swallows it:
+
+```bash
+snap run logilight
+```
+
+The GUI needs the GNOME platform snaps, which snapd normally installs on demand:
+
+```bash
+snap list | grep -E 'gnome-46-2404|mesa-2404|gtk-common-themes'
+```
+
+**The keyboard is detected but the lighting does not change** — the `raw-usb`
+interface is probably not connected:
+
+```bash
+snap connections logilight | grep raw-usb
+sudo snap connect logilight:raw-usb
+```
+
 ## How it works
 
 ```

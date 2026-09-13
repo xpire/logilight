@@ -1,12 +1,11 @@
 name: logilight
 title: LogiLight
 base: core24
-version: '0.1.0'
+version: '0.1.1'
 summary: RGB lighting control for Logitech G-series keyboards
 description: |
   Set the colour, effect and speed of the RGB lighting on Logitech G-series
   keyboards, and choose whether it comes back after a reboot.
-
   LogiLight drives g810-led, the standard Linux controller for these keyboards.
   It replaces the usual sudo / udev-rule / systemd-service setup with a confined
   snap service that already runs with the access it needs, so nothing has to be

@@ -78,9 +78,11 @@ def main(argv: list[str] | None = None) -> int:
         else:
             reply = core.request({"cmd": "status"})
     except OSError as exc:
-        # The usual cause is the daemon not being up yet, just after install.
-        print(f"logilight: cannot reach the LogiLight service ({exc.strerror}).", file=sys.stderr)
-        print("          Start it with: sudo snap start logilight.logilight-daemon", file=sys.stderr)
+        # Printed with the path we actually tried: a daemon and client that
+        # disagree about the socket location look identical to a dead daemon.
+        print(f"logilight: cannot reach the LogiLight service at {core.socket_path()} ({exc.strerror}).", file=sys.stderr)
+        print("          Check: systemctl status snap.logilight.logilight-daemon", file=sys.stderr)
+        print("          Retry: sudo snap restart logilight.logilight-daemon", file=sys.stderr)
         return 1
     except ValueError as exc:
         print(f"logilight: {exc}", file=sys.stderr)

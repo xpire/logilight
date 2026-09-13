@@ -165,6 +165,46 @@ def test_cli_set_payload_is_accepted_by_the_daemon_validator():
     assert argv == ["-fx", "color", "all", "abcdef"], argv
 
 
+def test_detect_survives_a_denied_sysfs():
+    # A confined snap without raw-usb connected can be refused the listing.
+    class Denied:
+        def glob(self, pattern):
+            raise PermissionError(13, "Permission denied")
+
+    original = core.USB_DEVICES
+    core.USB_DEVICES = Denied()
+    try:
+        assert core.detect() == []
+    finally:
+        core.USB_DEVICES = original
+
+
+def test_apply_names_the_likely_fix_when_no_device_is_visible():
+    from logilight import daemon
+
+    original = core.detect
+    core.detect = lambda: []
+    try:
+        result = daemon.apply(core.DEFAULTS)
+    finally:
+        core.detect = original
+    assert result["ok"] is False
+    assert "raw-usb" in result["error"], result
+
+
+def test_apply_reports_a_missing_g810_led_instead_of_raising():
+    from logilight import daemon
+
+    detect, resolve = core.detect, core.resolve
+    core.detect = lambda: [{"pid": "c32b", "name": "G910", "binary": "g910-led"}]
+    core.resolve = lambda binary: "/nonexistent/g910-led"
+    try:
+        result = daemon.apply(core.DEFAULTS)
+    finally:
+        core.detect, core.resolve = detect, resolve
+    assert result["ok"] is False and result["errors"], result
+
+
 def main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for test in tests:

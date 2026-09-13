@@ -17,7 +17,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from logilight import cli, core, daemon  # noqa: E402
 
 
+def check_boot_apply_never_kills_the_daemon():
+    """Regression: the boot apply used to run before the socket was bound, so an
+    exception there killed the process and every client saw only "cannot reach
+    the service", with nothing to explain why."""
+
+    def boom():
+        raise RuntimeError("sysfs exploded")
+
+    original = core.detect
+    core.detect = boom
+    try:
+        daemon.boot_apply()  # must not raise
+    finally:
+        core.detect = original
+    print("ok  a failing boot apply is logged, not fatal")
+
+
 def main():
+    check_boot_apply_never_kills_the_daemon()
     with tempfile.TemporaryDirectory() as tmp:
         state = Path(tmp)
         core.os.environ["LOGILIGHT_STATE"] = str(state)
